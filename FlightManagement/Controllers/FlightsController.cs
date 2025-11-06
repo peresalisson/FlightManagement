@@ -57,11 +57,7 @@ namespace FlightManagement.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(FlightCreateViewModel viewModel)
         {
-            if (viewModel.DepartureAirportId == viewModel.DestinationAirportId)
-            {
-                ModelState.AddModelError("", "Departure and destination airports must be different");
-            }
-
+            // Validate ModelState
             if (!ModelState.IsValid)
             {
                 await PopulateAirportDropdowns(viewModel);
@@ -70,19 +66,23 @@ namespace FlightManagement.Controllers
 
             try
             {
-                var flight = new Flight
-                {
-                    FlightNumber = viewModel.FlightNumber,
-                    DepartureAirportId = viewModel.DepartureAirportId,
-                    DestinationAirportId = viewModel.DestinationAirportId,
-                    DepartureDate = viewModel.DepartureDate,
-                    FuelConsumptionPerKm = viewModel.FuelConsumptionPerKm,
-                    TakeoffFuel = viewModel.TakeoffFuel
-                };
+                await _flightService.CreateFlightAsync(
+                    viewModel.FlightNumber,
+                    viewModel.DepartureAirportId,
+                    viewModel.DestinationAirportId,
+                    viewModel.DepartureDate,
+                    viewModel.FuelConsumptionPerKm,
+                    viewModel.TakeoffFuel
+                );
 
-                await _flightService.CreateFlightAsync(flight);
                 TempData["SuccessMessage"] = "Flight created successfully";
                 return RedirectToAction(nameof(Index));
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError("", ex.Message);
+                await PopulateAirportDropdowns(viewModel);
+                return View(viewModel);
             }
             catch (Exception ex)
             {
@@ -127,11 +127,6 @@ namespace FlightManagement.Controllers
             if (id != viewModel.Id)
                 return NotFound();
 
-            if (viewModel.DepartureAirportId == viewModel.DestinationAirportId)
-            {
-                ModelState.AddModelError("", "Departure and destination airports must be different");
-            }
-
             if (!ModelState.IsValid)
             {
                 await PopulateAirportDropdowns(viewModel);
@@ -140,20 +135,28 @@ namespace FlightManagement.Controllers
 
             try
             {
-                var flight = await _flightService.GetFlightByIdAsync(id);
-                if (flight == null)
-                    return NotFound();
+                await _flightService.UpdateFlightAsync(
+                    id,
+                    viewModel.FlightNumber,
+                    viewModel.DepartureAirportId,
+                    viewModel.DestinationAirportId,
+                    viewModel.DepartureDate,
+                    viewModel.FuelConsumptionPerKm,
+                    viewModel.TakeoffFuel
+                );
 
-                flight.FlightNumber = viewModel.FlightNumber;
-                flight.DepartureAirportId = viewModel.DepartureAirportId;
-                flight.DestinationAirportId = viewModel.DestinationAirportId;
-                flight.DepartureDate = viewModel.DepartureDate;
-                flight.FuelConsumptionPerKm = viewModel.FuelConsumptionPerKm;
-                flight.TakeoffFuel = viewModel.TakeoffFuel;
-
-                await _flightService.UpdateFlightAsync(flight);
                 TempData["SuccessMessage"] = "Flight updated successfully";
                 return RedirectToAction(nameof(Index));
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError("", ex.Message);
+                await PopulateAirportDropdowns(viewModel);
+                return View(viewModel);
             }
             catch (Exception ex)
             {

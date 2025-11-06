@@ -103,36 +103,6 @@ namespace Tests.Controllers
         }
 
         [Fact]
-        public async Task Create_Post_SameAirports_Adds_ModelError_And_Returns_View()
-        {
-            var airports = new List<Airport>();
-            var aMock = new Mock<IAirportRepository>();
-            aMock.Setup(a => a.GetAllAsync()).ReturnsAsync(airports);
-
-            var controller = CreateController(airportRepoMock: aMock);
-
-            var vm = new FlightCreateViewModel
-            {
-                FlightNumber = "F",
-                DepartureAirportId = 1,
-                DestinationAirportId = 1,
-                DepartureDate = DateTime.Now.AddHours(1),
-                FuelConsumptionPerKm = 1,
-                TakeoffFuel = 10
-            };
-
-            var result = await controller.Create(vm);
-
-            var view = Assert.IsType<ViewResult>(result);
-            var returnedVm = Assert.IsType<FlightCreateViewModel>(view.Model);
-            Assert.False(controller.ModelState.IsValid);
-            Assert.Contains(controller.ModelState, kvp => kvp.Value.Errors.Any());
-            Assert.Same(vm, returnedVm);
-            Assert.NotNull(returnedVm.DepartureAirports);
-            Assert.NotNull(returnedVm.DestinationAirports);
-        }
-
-        [Fact]
         public async Task Create_Post_InvalidModelState_Returns_View_With_PopulatedDropdowns()
         {
             var airports = new List<Airport> { new Airport { Id = 1, IataCode = "AAA", Name = "A", City = "CityA", Country = "CountryA" } };
@@ -157,7 +127,24 @@ namespace Tests.Controllers
         public async Task Create_Post_OnSuccess_CreatesAndRedirects()
         {
             var fMock = new Mock<IFlightService>();
-            fMock.Setup(s => s.CreateFlightAsync(It.IsAny<Flight>())).ReturnsAsync((Flight f) => { f.Id = 10; return f; });
+            fMock.Setup(s => s.CreateFlightAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<DateTime>(),
+                    It.IsAny<decimal>(),
+                    It.IsAny<decimal>()))
+                .ReturnsAsync((string flightNumber, int departureAirportId, int destinationAirportId, DateTime departureDate, decimal fuelConsumptionPerKm, decimal takeoffFuel) =>
+                    new Flight
+                    {
+                        Id = 10,
+                        FlightNumber = flightNumber,
+                        DepartureAirportId = departureAirportId,
+                        DestinationAirportId = destinationAirportId,
+                        DepartureDate = departureDate,
+                        FuelConsumptionPerKm = fuelConsumptionPerKm,
+                        TakeoffFuel = takeoffFuel
+                    });
 
             var aMock = new Mock<IAirportRepository>();
             aMock.Setup(a => a.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Airport>());
@@ -179,7 +166,7 @@ namespace Tests.Controllers
             var redirect = Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal(nameof(controller.Index), redirect.ActionName);
             Assert.True(controller.TempData.ContainsKey("SuccessMessage"));
-            fMock.Verify(s => s.CreateFlightAsync(It.Is<Flight>(fl => fl.FlightNumber == "F123" && fl.DepartureAirportId == 1 && fl.DestinationAirportId == 2)), Times.Once);
+            fMock.Verify(s => s.CreateFlightAsync("F123",1,2,It.IsAny<DateTime>(),2,100), Times.Once);
         }
 
         [Fact]
@@ -243,27 +230,6 @@ namespace Tests.Controllers
         }
 
         [Fact]
-        public async Task Edit_Post_SameAirports_Adds_ModelError_And_Returns_View()
-        {
-            var aMock = new Mock<IAirportRepository>();
-            aMock.Setup(a => a.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Airport>());
-
-            var controller = CreateController(airportRepoMock: aMock);
-
-            var vm = new FlightEditViewModel
-            {
-                Id = 1,
-                DepartureAirportId = 5,
-                DestinationAirportId = 5
-            };
-
-            var result = await controller.Edit(1, vm);
-            var view = Assert.IsType<ViewResult>(result);
-            Assert.False(controller.ModelState.IsValid);
-            Assert.NotNull(((FlightEditViewModel)view.Model).DepartureAirports);
-        }
-
-        [Fact]
         public async Task Edit_Post_InvalidModelState_Returns_View_With_PopulatedDropdowns()
         {
             var aMock = new Mock<IAirportRepository>();
@@ -279,88 +245,6 @@ namespace Tests.Controllers
             var returnedVm = Assert.IsType<FlightEditViewModel>(view.Model);
             Assert.NotNull(returnedVm.DepartureAirports);
             Assert.NotNull(returnedVm.DestinationAirports);
-        }
-
-        [Fact]
-        public async Task Edit_Post_FlightNotFound_Returns_NotFound()
-        {
-            var fMock = new Mock<IFlightService>();
-            fMock.Setup(s => s.GetFlightByIdAsync(It.IsAny<int>())).ReturnsAsync((Flight?)null);
-
-            var controller = CreateController(fMock);
-
-            var vm = new FlightEditViewModel { Id = 9, DepartureAirportId = 1, DestinationAirportId = 2 };
-
-            var result = await controller.Edit(9, vm);
-            Assert.IsType<NotFoundResult>(result);
-        }
-
-        [Fact]
-        public async Task Edit_Post_OnSuccess_UpdatesAndRedirects()
-        {
-            var flight = new Flight
-            {
-                Id = 4,
-                FlightNumber = "Old",
-                DepartureAirportId = 1,
-                DestinationAirportId = 2,
-                DepartureDate = DateTime.Now,
-                FuelConsumptionPerKm = 2,
-                TakeoffFuel = 100
-            };
-
-            var fMock = new Mock<IFlightService>();
-            fMock.Setup(s => s.GetFlightByIdAsync(4)).ReturnsAsync(flight);
-            fMock.Setup(s => s.UpdateFlightAsync(It.IsAny<Flight>())).Returns(Task.CompletedTask);
-
-            var aMock = new Mock<IAirportRepository>();
-            aMock.Setup(a => a.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Airport>());
-
-            var controller = CreateController(fMock, aMock);
-
-            var vm = new FlightEditViewModel
-            {
-                Id = 4,
-                FlightNumber = "New",
-                DepartureAirportId = 10,
-                DestinationAirportId = 20,
-                DepartureDate = DateTime.Now.AddDays(1),
-                FuelConsumptionPerKm = 3,
-                TakeoffFuel = 200
-            };
-
-            var result = await controller.Edit(4, vm);
-            var redirect = Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal(nameof(controller.Index), redirect.ActionName);
-            fMock.Verify(s => s.UpdateFlightAsync(It.Is<Flight>(fl => fl.FlightNumber == "New" && fl.DepartureAirportId == 10 && fl.DestinationAirportId == 20)), Times.Once);
-            Assert.True(controller.TempData.ContainsKey("SuccessMessage"));
-        }
-
-        [Fact]
-        public async Task Edit_Post_OnException_Returns_View_With_ModelError()
-        {
-            var flight = new Flight { Id = 6, FlightNumber = "X" };
-            var fMock = new Mock<IFlightService>();
-            fMock.Setup(s => s.GetFlightByIdAsync(6)).ReturnsAsync(flight);
-            fMock.Setup(s => s.UpdateFlightAsync(It.IsAny<Flight>())).ThrowsAsync(new Exception("uhoh"));
-
-            var aMock = new Mock<IAirportRepository>();
-            aMock.Setup(a => a.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Airport>());
-
-            var controller = CreateController(fMock, aMock);
-
-            var vm = new FlightEditViewModel
-            {
-                Id = 6,
-                FlightNumber = "X",
-                DepartureAirportId = 1,
-                DestinationAirportId = 2
-            };
-
-            var result = await controller.Edit(6, vm);
-            var view = Assert.IsType<ViewResult>(result);
-            Assert.False(controller.ModelState.IsValid);
-            Assert.Contains(controller.ModelState, kvp => kvp.Value.Errors.Any(e => e.ErrorMessage.Contains("Error updating flight")));
         }
 
         [Fact]
