@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36301.6
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlightManagement", "FlightManagement\FlightManagement.csproj", "{14344177-71D5-460A-87E5-37E21C5B0409}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{07F25FC6-39C6-4D34-9D7D-8B5EA6A66895}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{14344177-71D5-460A-87E5-37E21C5B0409}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{14344177-71D5-460A-87E5-37E21C5B0409}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{14344177-71D5-460A-87E5-37E21C5B0409}.Release|Any CPU.Build.0 = Release|Any CPU
+		{07F25FC6-39C6-4D34-9D7D-8B5EA6A66895}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07F25FC6-39C6-4D34-9D7D-8B5EA6A66895}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07F25FC6-39C6-4D34-9D7D-8B5EA6A66895}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07F25FC6-39C6-4D34-9D7D-8B5EA6A66895}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
