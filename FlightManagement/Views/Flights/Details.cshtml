@@ -1,4 +1,153 @@
-﻿@page
-@model FlightManagement.Views.Flights.DetailsModel
+﻿@model FlightManagement.Models.Flight
+
 @{
+    ViewData["Title"] = "Flight Details";
 }
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Flight Details</h1>
+                <a asp-action="Index" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-airplane"></i> @Model.FlightNumber
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5 class="text-muted">Route Information</h5>
+                            <dl class="row">
+                                <dt class="col-sm-5">Departure Airport:</dt>
+                                <dd class="col-sm-7">
+                                    <span class="badge bg-primary">@Model.DepartureAirport.IataCode</span>
+                                    @Model.DepartureAirport.Name
+                                    <br />
+                                    <small class="text-muted">@Model.DepartureAirport.City, @Model.DepartureAirport.Country</small>
+                                </dd>
+
+                                <dt class="col-sm-5">Destination Airport:</dt>
+                                <dd class="col-sm-7">
+                                    <span class="badge bg-success">@Model.DestinationAirport.IataCode</span>
+                                    @Model.DestinationAirport.Name
+                                    <br />
+                                    <small class="text-muted">@Model.DestinationAirport.City, @Model.DestinationAirport.Country</small>
+                                </dd>
+
+                                <dt class="col-sm-5">Departure Time:</dt>
+                                <dd class="col-sm-7">
+                                    @Model.DepartureDate.ToString("MMMM dd, yyyy")
+                                    <br />
+                                    <strong>@Model.DepartureDate.ToString("HH:mm")</strong>
+                                </dd>
+                            </dl>
+                        </div>
+
+                        <div class="col-md-6">
+                            <h5 class="text-muted">GPS Coordinates</h5>
+                            <dl class="row">
+                                <dt class="col-sm-5">Departure:</dt>
+                                <dd class="col-sm-7">
+                                    <code>@Model.DepartureAirport.Latitude.ToString("F4")°, @Model.DepartureAirport.Longitude.ToString("F4")°</code>
+                                </dd>
+
+                                <dt class="col-sm-5">Destination:</dt>
+                                <dd class="col-sm-7">
+                                    <code>@Model.DestinationAirport.Latitude.ToString("F4")°, @Model.DestinationAirport.Longitude.ToString("F4")°</code>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5 class="text-muted">Fuel Configuration</h5>
+                            <dl class="row">
+                                <dt class="col-sm-7">Fuel Consumption Rate:</dt>
+                                <dd class="col-sm-5">
+                                    <span class="badge bg-info">@Model.FuelConsumptionPerKm.ToString("N2") L/km</span>
+                                </dd>
+
+                                <dt class="col-sm-7">Takeoff Fuel:</dt>
+                                <dd class="col-sm-5">
+                                    <span class="badge bg-info">@Model.TakeoffFuel.ToString("N2") L</span>
+                                </dd>
+                            </dl>
+                        </div>
+
+                        <div class="col-md-6">
+                            <h5 class="text-muted">Calculated Metrics</h5>
+                            <dl class="row">
+                                <dt class="col-sm-7">Distance:</dt>
+                                <dd class="col-sm-5">
+                                    @if (Model.CalculatedDistance.HasValue)
+                                    {
+                                        <span class="badge bg-success">@Model.CalculatedDistance.Value.ToString("N2") km</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">N/A</span>
+                                    }
+                                </dd>
+
+                                <dt class="col-sm-7">Required Fuel:</dt>
+                                <dd class="col-sm-5">
+                                    @if (Model.RequiredFuel.HasValue)
+                                    {
+                                        <span class="badge bg-warning text-dark">@Model.RequiredFuel.Value.ToString("N2") L</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">N/A</span>
+                                    }
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h5 class="text-muted">Metadata</h5>
+                            <dl class="row">
+                                <dt class="col-sm-3">Created:</dt>
+                                <dd class="col-sm-9">@Model.CreatedAt.ToString("MMMM dd, yyyy HH:mm:ss")</dd>
+
+                                @if (Model.ModifiedAt.HasValue)
+                                {
+                                    <dt class="col-sm-3">Last Modified:</dt>
+                                    <dd class="col-sm-9">@Model.ModifiedAt.Value.ToString("MMMM dd, yyyy HH:mm:ss")</dd>
+                                }
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between">
+                        <a asp-action="Index" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to List
+                        </a>
+                        <div>
+                            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Delete
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

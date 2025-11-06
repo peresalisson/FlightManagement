@@ -1,32 +1,240 @@
-using System.Diagnostics;
-using FlightManagement.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using FlightManagement.Models;
+using FlightManagement.Services;
+using FlightManagement.Repositories;
+using FlightManagement.ViewModels;
 
 namespace FlightManagement.Controllers
 {
     public class FlightsController : Controller
     {
-        private readonly ILogger<FlightsController> _logger;
+        private readonly IFlightService _flightService;
+        private readonly IAirportRepository _airportRepository;
 
-        public FlightsController(ILogger<FlightsController> logger)
+        public FlightsController(IFlightService flightService, IAirportRepository airportRepository)
         {
-            _logger = logger;
+            _flightService = flightService;
+            _airportRepository = airportRepository;
         }
 
-        public IActionResult Index()
+        // GET: Flights
+        public async Task<IActionResult> Index()
         {
-            return View();
+            var flights = await _flightService.GetAllFlightsAsync();
+            return View(flights);
         }
 
-        public IActionResult Privacy()
+        // GET: Flights/Details/5
+        public async Task<IActionResult> Details(int? id)
         {
-            return View();
+            if (id == null)
+                return NotFound();
+
+            var flight = await _flightService.GetFlightByIdAsync(id.Value);
+            if (flight == null)
+                return NotFound();
+
+            return View(flight);
         }
 
-        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
+        // GET: Flights/Create
+        public async Task<IActionResult> Create()
         {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            var viewModel = new FlightCreateViewModel
+            {
+                DepartureDate = DateTime.Now.AddHours(1),
+                FuelConsumptionPerKm = 3.5m,
+                TakeoffFuel = 500m
+            };
+
+            await PopulateAirportDropdowns(viewModel);
+            return View(viewModel);
+        }
+
+        // POST: Flights/Create
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(FlightCreateViewModel viewModel)
+        {
+            if (viewModel.DepartureAirportId == viewModel.DestinationAirportId)
+            {
+                ModelState.AddModelError("", "Departure and destination airports must be different");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                await PopulateAirportDropdowns(viewModel);
+                return View(viewModel);
+            }
+
+            try
+            {
+                var flight = new Flight
+                {
+                    FlightNumber = viewModel.FlightNumber,
+                    DepartureAirportId = viewModel.DepartureAirportId,
+                    DestinationAirportId = viewModel.DestinationAirportId,
+                    DepartureDate = viewModel.DepartureDate,
+                    FuelConsumptionPerKm = viewModel.FuelConsumptionPerKm,
+                    TakeoffFuel = viewModel.TakeoffFuel
+                };
+
+                await _flightService.CreateFlightAsync(flight);
+                TempData["SuccessMessage"] = "Flight created successfully";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"Error creating flight: {ex.Message}");
+                await PopulateAirportDropdowns(viewModel);
+                return View(viewModel);
+            }
+        }
+
+        // GET: Flights/Edit/5
+        public async Task<IActionResult> Edit(int? id)
+        {
+            if (id == null)
+                return NotFound();
+
+            var flight = await _flightService.GetFlightByIdAsync(id.Value);
+            if (flight == null)
+                return NotFound();
+
+            var viewModel = new FlightEditViewModel
+            {
+                Id = flight.Id,
+                FlightNumber = flight.FlightNumber,
+                DepartureAirportId = flight.DepartureAirportId,
+                DestinationAirportId = flight.DestinationAirportId,
+                DepartureDate = flight.DepartureDate,
+                FuelConsumptionPerKm = flight.FuelConsumptionPerKm,
+                TakeoffFuel = flight.TakeoffFuel,
+                CalculatedDistance = flight.CalculatedDistance,
+                RequiredFuel = flight.RequiredFuel
+            };
+
+            await PopulateAirportDropdowns(viewModel);
+            return View(viewModel);
+        }
+
+        // POST: Flights/Edit/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, FlightEditViewModel viewModel)
+        {
+            if (id != viewModel.Id)
+                return NotFound();
+
+            if (viewModel.DepartureAirportId == viewModel.DestinationAirportId)
+            {
+                ModelState.AddModelError("", "Departure and destination airports must be different");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                await PopulateAirportDropdowns(viewModel);
+                return View(viewModel);
+            }
+
+            try
+            {
+                var flight = await _flightService.GetFlightByIdAsync(id);
+                if (flight == null)
+                    return NotFound();
+
+                flight.FlightNumber = viewModel.FlightNumber;
+                flight.DepartureAirportId = viewModel.DepartureAirportId;
+                flight.DestinationAirportId = viewModel.DestinationAirportId;
+                flight.DepartureDate = viewModel.DepartureDate;
+                flight.FuelConsumptionPerKm = viewModel.FuelConsumptionPerKm;
+                flight.TakeoffFuel = viewModel.TakeoffFuel;
+
+                await _flightService.UpdateFlightAsync(flight);
+                TempData["SuccessMessage"] = "Flight updated successfully";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"Error updating flight: {ex.Message}");
+                await PopulateAirportDropdowns(viewModel);
+                return View(viewModel);
+            }
+        }
+
+        // GET: Flights/Delete/5
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null)
+                return NotFound();
+
+            var flight = await _flightService.GetFlightByIdAsync(id.Value);
+            if (flight == null)
+                return NotFound();
+
+            return View(flight);
+        }
+
+        // POST: Flights/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            try
+            {
+                await _flightService.DeleteFlightAsync(id);
+                TempData["SuccessMessage"] = "Flight deleted successfully";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error deleting flight: {ex.Message}";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        // GET: Flights/Report
+        public async Task<IActionResult> Report()
+        {
+            var flights = await _flightService.GetAllFlightsAsync();
+
+            var reportItems = flights.Select(f => new FlightReportItem
+            {
+                Id = f.Id,
+                FlightNumber = f.FlightNumber,
+                DepartureAirport = $"{f.DepartureAirport.IataCode} - {f.DepartureAirport.Name}",
+                DestinationAirport = $"{f.DestinationAirport.IataCode} - {f.DestinationAirport.Name}",
+                DepartureDate = f.DepartureDate,
+                CalculatedDistance = f.CalculatedDistance,
+                FuelConsumptionPerKm = f.FuelConsumptionPerKm,
+                TakeoffFuel = f.TakeoffFuel,
+                RequiredFuel = f.RequiredFuel
+            }).ToList();
+
+            var summary = new FlightReportSummary
+            {
+                TotalFlights = reportItems.Count,
+                TotalDistance = reportItems.Sum(f => f.CalculatedDistance ?? 0),
+                TotalFuelRequired = reportItems.Sum(f => f.RequiredFuel ?? 0),
+                AverageDistance = reportItems.Any() ? reportItems.Average(f => f.CalculatedDistance ?? 0) : 0,
+                AverageFuelPerFlight = reportItems.Any() ? reportItems.Average(f => f.RequiredFuel ?? 0) : 0
+            };
+
+            var viewModel = new FlightReportViewModel
+            {
+                Flights = reportItems,
+                Summary = summary
+            };
+
+            return View(viewModel);
+        }
+
+        private async Task PopulateAirportDropdowns(FlightCreateViewModel viewModel)
+        {
+            var airports = await _airportRepository.GetAllAsync();
+            viewModel.DepartureAirports = new SelectList(airports, "Id", "IataCode");
+            viewModel.DestinationAirports = new SelectList(airports, "Id", "IataCode");
         }
     }
 }

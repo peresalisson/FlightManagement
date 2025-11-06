@@ -1,4 +1,101 @@
-﻿@page
-@model FlightManagement.Views.Flights.EditModel
+﻿@model FlightManagement.ViewModels.FlightEditViewModel
+
 @{
+    ViewData["Title"] = "Edit Flight";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <h1 class="mb-4">Edit Flight</h1>
+
+            <div class="card">
+                <div class="card-body">
+                    <form asp-action="Edit" method="post">
+                        <input type="hidden" asp-for="Id" />
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="FlightNumber" class="form-label"></label>
+                            <input asp-for="FlightNumber" class="form-control" />
+                            <span asp-validation-for="FlightNumber" class="text-danger"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="DepartureAirportId" class="form-label"></label>
+                                <select asp-for="DepartureAirportId" asp-items="Model.DepartureAirports" class="form-select">
+                                    <option value="">-- Select Airport --</option>
+                                </select>
+                                <span asp-validation-for="DepartureAirportId" class="text-danger"></span>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="DestinationAirportId" class="form-label"></label>
+                                <select asp-for="DestinationAirportId" asp-items="Model.DestinationAirports" class="form-select">
+                                    <option value="">-- Select Airport --</option>
+                                </select>
+                                <span asp-validation-for="DestinationAirportId" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="DepartureDate" class="form-label"></label>
+                            <input asp-for="DepartureDate" type="datetime-local" class="form-control" />
+                            <span asp-validation-for="DepartureDate" class="text-danger"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="FuelConsumptionPerKm" class="form-label"></label>
+                                <div class="input-group">
+                                    <input asp-for="FuelConsumptionPerKm" class="form-control" step="0.01" />
+                                    <span class="input-group-text">L/km</span>
+                                </div>
+                                <span asp-validation-for="FuelConsumptionPerKm" class="text-danger"></span>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="TakeoffFuel" class="form-label"></label>
+                                <div class="input-group">
+                                    <input asp-for="TakeoffFuel" class="form-control" step="0.01" />
+                                    <span class="input-group-text">L</span>
+                                </div>
+                                <span asp-validation-for="TakeoffFuel" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        @if (Model.CalculatedDistance.HasValue && Model.RequiredFuel.HasValue)
+                        {
+                            <div class="alert alert-success">
+                                <h5><i class="bi bi-calculator"></i> Current Calculations</h5>
+                                <p class="mb-1">
+                                    <strong>Distance:</strong> @Model.CalculatedDistance.Value.ToString("N2") km
+                                </p>
+                                <p class="mb-0">
+                                    <strong>Required Fuel:</strong> @Model.RequiredFuel.Value.ToString("N2") L
+                                </p>
+                                <small class="text-muted">Values will be recalculated upon saving</small>
+                            </div>
+                        }
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a asp-action="Index" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
 }
