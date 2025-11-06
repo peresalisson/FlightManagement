@@ -1,5 +1,7 @@
-﻿using FlightManagement.Models;
+﻿using FlightManagement.DTO;
+using FlightManagement.Models;
 using FlightManagement.Repositories;
+using Microsoft.EntityFrameworkCore;
 
 namespace FlightManagement.Services
 {
@@ -14,103 +16,81 @@ namespace FlightManagement.Services
         private readonly IFlightCalculationService _calculationService = calculationService;
         private readonly ILogger<FlightService> _logger = logger;
 
-        public async Task<IEnumerable<Flight>> GetAllFlightsAsync()
+        public async Task<IEnumerable<Flight>> GetAllFlightsAsync(CancellationToken cancellationToken)
         {
-            return await _flightRepository.GetAllAsync();
+            cancellationToken.ThrowIfCancellationRequested();
+            return await _flightRepository.GetAllAsync(CancellationToken.None).ConfigureAwait(false);
         }
 
         public async Task<Flight> GetFlightByIdAsync(int id)
         {
-            var flight = await _flightRepository.GetByIdAsync(id);
+            var flight = await _flightRepository.GetByIdAsync(id).ConfigureAwait(false);
+
             if (flight == null)
             {
                 _logger.LogWarning("Flight with ID {FlightId} not found", id);
                 throw new KeyNotFoundException($"Flight with ID {id} not found");
             }
+
             return flight;
         }
 
-        public async Task<Flight> CreateFlightAsync(string flightNumber, int departureAirportId, int destinationAirportId,
-            DateTime departureDate, decimal fuelConsumptionPerKm, decimal takeoffFuel)
+        public async Task<Flight> CreateFlightAsync(CreateFlightDTO create)
         {
-            // Business validation
-            if (departureAirportId == destinationAirportId)
+            ArgumentNullException.ThrowIfNull(create);
+
+            if (create.DepartureAirportId == create.DestinationAirportId)
             {
                 throw new InvalidOperationException("Departure and destination airports must be different");
             }
 
-            // Get airports
-            var departureAirport = await _airportRepository.GetByIdAsync(departureAirportId);
-            var destinationAirport = await _airportRepository.GetByIdAsync(destinationAirportId);
+            var departureAirport = await _airportRepository.GetByIdAsync(create.DepartureAirportId, CancellationToken.None);
+            var destinationAirport = await _airportRepository.GetByIdAsync(create.DestinationAirportId, CancellationToken.None);
 
             if (departureAirport == null || destinationAirport == null)
             {
                 throw new InvalidOperationException("Invalid airport selection");
             }
 
-            // Create flight entity
             var flight = new Flight
             {
-                FlightNumber = flightNumber,
-                DepartureAirportId = departureAirportId,
-                DestinationAirportId = destinationAirportId,
-                DepartureDate = departureDate,
-                FuelConsumptionPerKm = fuelConsumptionPerKm,
-                TakeoffFuel = takeoffFuel,
+                FlightNumber = create.FlightNumber,
+                DepartureAirportId = create.DepartureAirportId,
+                DestinationAirportId = create.DestinationAirportId,
+                DepartureDate = create.DepartureDate,
+                FuelConsumptionPerKm = create.FuelConsumptionPerKm,
+                TakeoffFuel = create.TakeoffFuel,
                 CreatedAt = DateTime.UtcNow
             };
 
-            // Calculate metrics
             CalculateFlightMetrics(flight, departureAirport, destinationAirport);
 
-            // Persist
-            var createdFlight = await _flightRepository.AddAsync(flight);
+            var createdFlight = await _flightRepository.AddAsync(flight).ConfigureAwait(false);
 
-            _logger.LogInformation("Flight {FlightNumber} created with ID {FlightId}", flightNumber, createdFlight.Id);
+            _logger.LogInformation("Flight {FlightNumber} created with ID {FlightId}", create.FlightNumber, createdFlight.Id);
 
             return createdFlight;
         }
 
-        public async Task<Flight> UpdateFlightAsync(int id, string flightNumber, int departureAirportId, int destinationAirportId,
-            DateTime departureDate, decimal fuelConsumptionPerKm, decimal takeoffFuel)
+        public async Task<Flight> UpdateFlightAsync(FlightUpdateDTO update)
         {
-            var flight = await GetFlightByIdAsync(id);
+            var existing = await _flightRepository.GetByIdAsync(update.Id) ?? throw new KeyNotFoundException();
+            existing.FlightNumber = update.FlightNumber;
+            existing.DepartureAirportId = update.DepartureAirportId;
+            existing.DestinationAirportId = update.DestinationAirportId;
+            existing.DepartureDate = update.DepartureDate;
+            existing.FuelConsumptionPerKm = update.FuelConsumptionPerKm;
+            existing.TakeoffFuel = update.TakeoffFuel;
+            existing.ModifiedAt = DateTime.UtcNow;
 
-            if (departureAirportId == destinationAirportId)
-            {
-                throw new InvalidOperationException("Departure and destination airports must be different");
-            }
-
-            var departureAirport = await _airportRepository.GetByIdAsync(departureAirportId);
-            var destinationAirport = await _airportRepository.GetByIdAsync(destinationAirportId);
-
-            if (departureAirport == null || destinationAirport == null)
-            {
-                throw new InvalidOperationException("Invalid airport selection");
-            }
-
-            flight.FlightNumber = flightNumber;
-            flight.DepartureAirportId = departureAirportId;
-            flight.DestinationAirportId = destinationAirportId;
-            flight.DepartureDate = departureDate;
-            flight.FuelConsumptionPerKm = fuelConsumptionPerKm;
-            flight.TakeoffFuel = takeoffFuel;
-            flight.ModifiedAt = DateTime.UtcNow;
-
-            // Recalculate metrics
-            CalculateFlightMetrics(flight, departureAirport, destinationAirport);
-
-            await _flightRepository.UpdateAsync(flight);
-
-            _logger.LogInformation("Flight {FlightNumber} (ID: {FlightId}) updated", flightNumber, id);
-
-            return flight;
+            await _flightRepository.UpdateAsync(existing).ConfigureAwait(false);
+            return existing;
         }
 
         public async Task DeleteFlightAsync(int id)
         {
             var flight = await GetFlightByIdAsync(id);
-            await _flightRepository.DeleteAsync(id);
+            await _flightRepository.DeleteAsync(id).ConfigureAwait(false);
 
             _logger.LogInformation("Flight {FlightNumber} (ID: {FlightId}) deleted", flight.FlightNumber, id);
         }
@@ -122,8 +102,8 @@ namespace FlightManagement.Services
                 return false;
             }
 
-            var departureAirport = await _airportRepository.GetByIdAsync(departureAirportId);
-            var destinationAirport = await _airportRepository.GetByIdAsync(destinationAirportId);
+            var departureAirport = await _airportRepository.GetByIdAsync(departureAirportId, CancellationToken.None).ConfigureAwait(false);
+            var destinationAirport = await _airportRepository.GetByIdAsync(destinationAirportId, CancellationToken.None).ConfigureAwait(false);
 
             return departureAirport != null && destinationAirport != null;
         }

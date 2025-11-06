@@ -7,6 +7,7 @@ using FlightManagement.Services;
 using FlightManagement.Repositories;
 using FlightManagement.Models;
 using FlightManagement.ViewModels;
+using FlightManagement.DTO;
 
 namespace Tests.Controllers
 {
@@ -43,12 +44,12 @@ namespace Tests.Controllers
             }.AsEnumerable();
 
             var fMock = new Mock<IFlightService>();
-            fMock.Setup(s => s.GetAllFlightsAsync()).ReturnsAsync(flights);
+            fMock.Setup(s => s.GetAllFlightsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(flights);
 
             var controller = CreateController(fMock);
 
             // Act
-            var result = await controller.Index();
+            var result = await controller.Index(CancellationToken.None);
 
             // Assert
             var view = Assert.IsType<ViewResult>(result);
@@ -87,7 +88,7 @@ namespace Tests.Controllers
             };
 
             var aMock = new Mock<IAirportRepository>();
-            aMock.Setup(a => a.GetAllAsync()).ReturnsAsync(airports);
+            aMock.Setup(a => a.GetAllAsync(CancellationToken.None)).ReturnsAsync(airports);
 
             var controller = CreateController(airportRepoMock: aMock);
             var result = await controller.Create();
@@ -107,7 +108,7 @@ namespace Tests.Controllers
         {
             var airports = new List<Airport> { new Airport { Id = 1, IataCode = "AAA", Name = "A", City = "CityA", Country = "CountryA" } };
             var aMock = new Mock<IAirportRepository>();
-            aMock.Setup(a => a.GetAllAsync()).ReturnsAsync(airports);
+            aMock.Setup(a => a.GetAllAsync(CancellationToken.None)).ReturnsAsync(airports);
 
             var controller = CreateController(airportRepoMock: aMock);
             controller.ModelState.AddModelError("FlightNumber", "Required");
@@ -127,27 +128,21 @@ namespace Tests.Controllers
         public async Task Create_Post_OnSuccess_CreatesAndRedirects()
         {
             var fMock = new Mock<IFlightService>();
-            fMock.Setup(s => s.CreateFlightAsync(
-                    It.IsAny<string>(),
-                    It.IsAny<int>(),
-                    It.IsAny<int>(),
-                    It.IsAny<DateTime>(),
-                    It.IsAny<decimal>(),
-                    It.IsAny<decimal>()))
-                .ReturnsAsync((string flightNumber, int departureAirportId, int destinationAirportId, DateTime departureDate, decimal fuelConsumptionPerKm, decimal takeoffFuel) =>
+            fMock.Setup(s => s.CreateFlightAsync(It.IsAny<CreateFlightDTO>()))
+                .ReturnsAsync((CreateFlightDTO dto) =>
                     new Flight
                     {
                         Id = 10,
-                        FlightNumber = flightNumber,
-                        DepartureAirportId = departureAirportId,
-                        DestinationAirportId = destinationAirportId,
-                        DepartureDate = departureDate,
-                        FuelConsumptionPerKm = fuelConsumptionPerKm,
-                        TakeoffFuel = takeoffFuel
+                        FlightNumber = dto.FlightNumber,
+                        DepartureAirportId = dto.DepartureAirportId,
+                        DestinationAirportId = dto.DestinationAirportId,
+                        DepartureDate = dto.DepartureDate,
+                        FuelConsumptionPerKm = dto.FuelConsumptionPerKm,
+                        TakeoffFuel = dto.TakeoffFuel
                     });
 
             var aMock = new Mock<IAirportRepository>();
-            aMock.Setup(a => a.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Airport>());
+            aMock.Setup(a => a.GetAllAsync(CancellationToken.None)).ReturnsAsync(Enumerable.Empty<Airport>());
 
             var controller = CreateController(fMock, aMock);
 
@@ -166,7 +161,13 @@ namespace Tests.Controllers
             var redirect = Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal(nameof(controller.Index), redirect.ActionName);
             Assert.True(controller.TempData.ContainsKey("SuccessMessage"));
-            fMock.Verify(s => s.CreateFlightAsync("F123",1,2,It.IsAny<DateTime>(),2,100), Times.Once);
+            fMock.Verify(s => s.CreateFlightAsync(It.Is<CreateFlightDTO>(d =>
+                d.FlightNumber == "F123" &&
+                d.DepartureAirportId == 1 &&
+                d.DestinationAirportId == 2 &&
+                d.FuelConsumptionPerKm == 2 &&
+                d.TakeoffFuel == 100
+            )), Times.Once);
         }
 
         [Fact]
@@ -181,7 +182,7 @@ namespace Tests.Controllers
         public async Task Edit_Get_NotFound_Returns_NotFound()
         {
             var fMock = new Mock<IFlightService>();
-            fMock.Setup(s => s.GetFlightByIdAsync(It.IsAny<int>())).ReturnsAsync((Flight?)null);
+            fMock.Setup(s => s.GetFlightByIdAsync(It.IsAny<int>())).Returns(Task.FromResult<Flight>(null!));
 
             var controller = CreateController(fMock);
             var result = await controller.Edit(7);
@@ -208,7 +209,7 @@ namespace Tests.Controllers
             fMock.Setup(s => s.GetFlightByIdAsync(3)).ReturnsAsync(flight);
 
             var aMock = new Mock<IAirportRepository>();
-            aMock.Setup(a => a.GetAllAsync()).ReturnsAsync(new[] { new Airport { Id = 1, IataCode = "A", Name = "AirportA", City = "CityA", Country = "CountryA" } });
+            aMock.Setup(a => a.GetAllAsync(CancellationToken.None)).ReturnsAsync(new[] { new Airport { Id = 1, IataCode = "A", Name = "AirportA", City = "CityA", Country = "CountryA" } });
 
             var controller = CreateController(fMock, aMock);
             var result = await controller.Edit(3);
@@ -233,7 +234,7 @@ namespace Tests.Controllers
         public async Task Edit_Post_InvalidModelState_Returns_View_With_PopulatedDropdowns()
         {
             var aMock = new Mock<IAirportRepository>();
-            aMock.Setup(a => a.GetAllAsync()).ReturnsAsync(new[] { new Airport { Id = 1, IataCode = "A", Name = "AirportA", City = "CityA", Country = "CountryA" } });
+            aMock.Setup(a => a.GetAllAsync(CancellationToken.None)).ReturnsAsync(new[] { new Airport { Id = 1, IataCode = "A", Name = "AirportA", City = "CityA", Country = "CountryA" } });
 
             var controller = CreateController(airportRepoMock: aMock);
             controller.ModelState.AddModelError("FlightNumber", "Required");
@@ -259,7 +260,7 @@ namespace Tests.Controllers
         public async Task Delete_Get_NotFound_Returns_NotFound()
         {
             var fMock = new Mock<IFlightService>();
-            fMock.Setup(s => s.GetFlightByIdAsync(It.IsAny<int>())).ReturnsAsync((Flight?)null);
+            fMock.Setup(s => s.GetFlightByIdAsync(It.IsAny<int>())).Returns(Task.FromResult<Flight>(null!));
 
             var controller = CreateController(fMock);
             var result = await controller.Delete(10);
@@ -322,20 +323,22 @@ namespace Tests.Controllers
             };
 
             var fMock = new Mock<IFlightService>();
-            fMock.Setup(s => s.GetAllFlightsAsync()).ReturnsAsync(flights);
+            fMock.Setup(s => s.GetAllFlightsAsync(It.IsAny<CancellationToken>())).ReturnsAsync(flights);
 
             var controller = CreateController(fMock);
-            var result = await controller.Report();
+            var result = await controller.Report(CancellationToken.None);
 
             var view = Assert.IsType<ViewResult>(result);
             var model = Assert.IsType<FlightReportViewModel>(view.Model);
 
+            Assert.NotNull(model.Summary);
             Assert.Equal(2, model.Summary.TotalFlights);
             Assert.Equal(300, model.Summary.TotalDistance);
             Assert.Equal(600, model.Summary.TotalFuelRequired);
             Assert.Equal(150, model.Summary.AverageDistance);
             Assert.Equal(300, model.Summary.AverageFuelPerFlight);
 
+            Assert.NotNull(model.Flights);
             Assert.Contains(model.Flights, i => i.DepartureAirport.Contains("AAA") && i.DestinationAirport.Contains("BBB"));
         }
     }

@@ -6,8 +6,8 @@ namespace FlightManagement.Repositories
 {
     public interface IAirportRepository
     {
-        Task<IEnumerable<Airport>> GetAllAsync();
-        Task<Airport> GetByIdAsync(int id);
-        Task<Airport> GetByIataCodeAsync(string iataCode);
+        Task<IEnumerable<Airport>> GetAllAsync(CancellationToken cancellationToken);
+        Task<Airport> GetByIdAsync(int id, CancellationToken cancellationToken);
+        Task<Airport> GetByIataCodeAsync(string iataCode, CancellationToken cancellationToken);
     }
 }

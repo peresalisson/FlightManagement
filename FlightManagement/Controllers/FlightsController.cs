@@ -4,6 +4,7 @@ using FlightManagement.Models;
 using FlightManagement.Services;
 using FlightManagement.Repositories;
 using FlightManagement.ViewModels;
+using FlightManagement.DTO;
 
 namespace FlightManagement.Controllers
 {
@@ -19,9 +20,9 @@ namespace FlightManagement.Controllers
         }
 
         // GET: Flights
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(CancellationToken cancellationToken)
         {
-            var flights = await _flightService.GetAllFlightsAsync();
+            var flights = await _flightService.GetAllFlightsAsync(CancellationToken.None);
             return View(flights);
         }
 
@@ -66,14 +67,17 @@ namespace FlightManagement.Controllers
 
             try
             {
-                await _flightService.CreateFlightAsync(
-                    viewModel.FlightNumber,
-                    viewModel.DepartureAirportId,
-                    viewModel.DestinationAirportId,
-                    viewModel.DepartureDate,
-                    viewModel.FuelConsumptionPerKm,
-                    viewModel.TakeoffFuel
-                );
+                var createDto = new CreateFlightDTO
+                {
+                    FlightNumber = viewModel.FlightNumber!,
+                    DepartureAirportId = viewModel.DepartureAirportId,
+                    DestinationAirportId = viewModel.DestinationAirportId,
+                    DepartureDate = viewModel.DepartureDate,
+                    FuelConsumptionPerKm = viewModel.FuelConsumptionPerKm,
+                    TakeoffFuel = viewModel.TakeoffFuel
+                };
+
+                await _flightService.CreateFlightAsync(createDto);
 
                 TempData["SuccessMessage"] = "Flight created successfully";
                 return RedirectToAction(nameof(Index));
@@ -135,15 +139,18 @@ namespace FlightManagement.Controllers
 
             try
             {
-                await _flightService.UpdateFlightAsync(
-                    id,
-                    viewModel.FlightNumber,
-                    viewModel.DepartureAirportId,
-                    viewModel.DestinationAirportId,
-                    viewModel.DepartureDate,
-                    viewModel.FuelConsumptionPerKm,
-                    viewModel.TakeoffFuel
-                );
+                var updateDto = new FlightUpdateDTO
+                {
+                    Id = viewModel.Id,
+                    FlightNumber = viewModel.FlightNumber,
+                    DepartureAirportId = viewModel.DepartureAirportId,
+                    DestinationAirportId = viewModel.DestinationAirportId,
+                    DepartureDate = viewModel.DepartureDate,
+                    FuelConsumptionPerKm = viewModel.FuelConsumptionPerKm,
+                    TakeoffFuel = viewModel.TakeoffFuel
+                };
+
+                await _flightService.UpdateFlightAsync(updateDto);
 
                 TempData["SuccessMessage"] = "Flight updated successfully";
                 return RedirectToAction(nameof(Index));
@@ -198,9 +205,9 @@ namespace FlightManagement.Controllers
         }
 
         // GET: Flights/Report
-        public async Task<IActionResult> Report()
+        public async Task<IActionResult> Report(CancellationToken cancellationToken)
         {
-            var flights = await _flightService.GetAllFlightsAsync();
+            var flights = await _flightService.GetAllFlightsAsync(CancellationToken.None);
 
             var reportItems = flights.Select(f => new FlightReportItem
             {
@@ -235,7 +242,7 @@ namespace FlightManagement.Controllers
 
         private async Task PopulateAirportDropdowns(FlightCreateViewModel viewModel)
         {
-            var airports = await _airportRepository.GetAllAsync();
+            var airports = await _airportRepository.GetAllAsync(CancellationToken.None);
             viewModel.DepartureAirports = new SelectList(airports, "Id", "IataCode");
             viewModel.DestinationAirports = new SelectList(airports, "Id", "IataCode");
         }
